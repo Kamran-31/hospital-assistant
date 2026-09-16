@@ -69,27 +69,6 @@ st.markdown(
         padding-bottom: 3rem;
     }
 
-    .app-header {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 28px 32px;
-        margin-bottom: 24px;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.04);
-    }
-
-    .app-title {
-        font-size: 32px;
-        font-weight: 700;
-        color: #111827;
-        margin-bottom: 8px;
-    }
-
-    .app-subtitle {
-        font-size: 16px;
-        color: #6b7280;
-        line-height: 1.6;
-    }
 
     .source-card {
         background: #f8fafc;
@@ -116,44 +95,20 @@ st.markdown(
 )
 
 
+
 # ============================================================
 # HEADER
 # ============================================================
 
-st.markdown(
-    """
-    <div style="
-        background-color: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        padding: 28px 32px;
-        margin-bottom: 24px;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.04);
-    ">
+st.title("🏥 Hospital Knowledge Assistant")
 
-        <h1 style="
-            font-size: 32px;
-            font-weight: 700;
-            color: #111827;
-            margin: 0 0 8px 0;
-        ">
-            🏥 Hospital Knowledge Assistant
-        </h1>
-
-        <p style="
-            font-size: 16px;
-            color: #6b7280;
-            margin: 0;
-            line-height: 1.6;
-        ">
-            Ask questions about hospital policies,
-            procedures, guidelines, and internal documents.
-        </p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
+st.caption(
+    "Ask questions about hospital policies, procedures, "
+    "guidelines, and internal documents."
 )
+
+st.divider()
+
 
 
 
