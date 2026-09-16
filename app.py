@@ -70,25 +70,6 @@ st.markdown(
     }
 
 
-    .source-card {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 14px 16px;
-        margin-top: 10px;
-    }
-
-    .source-title {
-        font-weight: 700;
-        color: #111827;
-        margin-bottom: 5px;
-    }
-
-    .source-meta {
-        font-size: 13px;
-        color: #6b7280;
-    }
-
     </style>
     """,
     unsafe_allow_html=True
@@ -600,22 +581,8 @@ for message in st.session_state.messages:
                         str(source_path)
                     )
 
-                    st.markdown(
-                        f"""
-                        <div class="source-card">
-
-                            <div class="source-title">
-                                📄 {safe_name}
-                            </div>
-
-                            <div class="source-meta">
-                                {safe_path}
-                            </div>
-
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    st.markdown(f"📄 **{safe_name}**")
+                    st.caption(safe_path)
 
 
 # ============================================================
@@ -720,22 +687,11 @@ if question:
                     str(source_path)
                 )
 
-                st.markdown(
-                    f"""
-                    <div class="source-card">
+               
+                st.markdown(f"📄 **{safe_name}**")
+                st.caption(safe_path)
 
-                        <div class="source-title">
-                            📄 {safe_name}
-                        </div>
 
-                        <div class="source-meta">
-                            {safe_path}
-                        </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
 
 
     # SAVE ASSISTANT MESSAGE
