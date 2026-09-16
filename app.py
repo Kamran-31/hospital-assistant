@@ -122,21 +122,40 @@ st.markdown(
 
 st.markdown(
     """
-    <div class="app-header">
+    <div style="
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+    ">
 
-        <div class="app-title">
+        <h1 style="
+            font-size: 32px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0 0 8px 0;
+        ">
             🏥 Hospital Knowledge Assistant
-        </div>
+        </h1>
 
-        <div class="app-subtitle">
+        <p style="
+            font-size: 16px;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.6;
+        ">
             Ask questions about hospital policies,
             procedures, guidelines, and internal documents.
-        </div>
+        </p>
 
     </div>
     """,
     unsafe_allow_html=True
 )
+
+
 
 
 # ============================================================
