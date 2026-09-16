@@ -1,12 +1,13 @@
 ```python
 import os
 import json
+
 import faiss
 import numpy as np
 import streamlit as st
 
-from sentence_transformers import SentenceTransformer
 from groq import Groq
+from sentence_transformers import SentenceTransformer
 
 
 # ============================================================
@@ -29,19 +30,16 @@ st.markdown(
     """
     <style>
 
-    /* Main background */
     .stApp {
-        background: #f7f8fa;
+        background-color: #f7f8fa;
     }
 
-    /* Main content */
     .main .block-container {
         max-width: 1050px;
         padding-top: 2rem;
         padding-bottom: 3rem;
     }
 
-    /* Header */
     .app-header {
         background: white;
         border: 1px solid #e5e7eb;
@@ -64,7 +62,6 @@ st.markdown(
         margin-top: 6px;
     }
 
-    /* Source cards */
     .source-card {
         background: white;
         border: 1px solid #e5e7eb;
@@ -85,27 +82,13 @@ st.markdown(
         margin-top: 3px;
     }
 
-    /* Sidebar */
     section[data-testid="stSidebar"] {
-        background: white;
+        background-color: white;
         border-right: 1px solid #e5e7eb;
     }
 
-    /* Chat messages */
     div[data-testid="stChatMessage"] {
         border-radius: 14px;
-    }
-
-    /* Input */
-    div[data-testid="stChatInput"] {
-        padding-bottom: 1rem;
-    }
-
-    /* Buttons */
-    .stButton > button {
-        border-radius: 10px;
-        border: 1px solid #d1d5db;
-        font-weight: 500;
     }
 
     </style>
@@ -115,7 +98,7 @@ st.markdown(
 
 
 # ============================================================
-# CONFIGURATION
+# PATHS
 # ============================================================
 
 FAISS_DIR = "faiss_index"
@@ -135,42 +118,45 @@ CONFIG_PATH = os.path.join(
     "config.json"
 )
 
+
+# ============================================================
+# MODEL
+# ============================================================
+
 DEFAULT_EMBEDDING_MODEL = (
     "sentence-transformers/all-MiniLM-L6-v2"
 )
 
 GROQ_MODEL = "openai/gpt-oss-120b"
 
-DEFAULT_TOP_K = 5
-
 
 # ============================================================
-# LOAD API KEY
+# LOAD GROQ API KEY
 # ============================================================
 
 def get_groq_api_key():
 
-    # Streamlit Cloud secrets
-    if "GROQ_API_KEY" in st.secrets:
-        return st.secrets["GROQ_API_KEY"]
+    try:
 
-    # Optional local environment fallback
-    api_key = os.getenv("GROQ_API_KEY")
+        if "GROQ_API_KEY" in st.secrets:
 
-    if api_key:
-        return api_key
+            return st.secrets["GROQ_API_KEY"]
 
-    return None
+    except Exception:
+        pass
+
+    return os.getenv("GROQ_API_KEY")
 
 
 # ============================================================
 # LOAD CONFIG
 # ============================================================
 
-@st.cache_resource
+@st.cache_data
 def load_config():
 
     if not os.path.exists(CONFIG_PATH):
+
         return {
             "embedding_model": DEFAULT_EMBEDDING_MODEL
         }
@@ -179,13 +165,13 @@ def load_config():
         CONFIG_PATH,
         "r",
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
-        return json.load(f)
+        return json.load(file)
 
 
 # ============================================================
-# LOAD FAISS INDEX
+# LOAD FAISS
 # ============================================================
 
 @st.cache_resource
@@ -194,7 +180,7 @@ def load_faiss_index():
     if not os.path.exists(INDEX_PATH):
 
         raise FileNotFoundError(
-            f"FAISS index not found: {INDEX_PATH}"
+            "index.faiss was not found."
         )
 
     return faiss.read_index(
@@ -203,7 +189,7 @@ def load_faiss_index():
 
 
 # ============================================================
-# LOAD CHUNKS + METADATA
+# LOAD CHUNKS
 # ============================================================
 
 @st.cache_data
@@ -212,16 +198,16 @@ def load_chunks():
     if not os.path.exists(CHUNKS_PATH):
 
         raise FileNotFoundError(
-            f"chunks.json not found: {CHUNKS_PATH}"
+            "chunks.json was not found."
         )
 
     with open(
         CHUNKS_PATH,
         "r",
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
-        return json.load(f)
+        return json.load(file)
 
 
 # ============================================================
@@ -229,7 +215,9 @@ def load_chunks():
 # ============================================================
 
 @st.cache_resource
-def load_embedding_model(model_name):
+def load_embedding_model(
+    model_name
+):
 
     return SentenceTransformer(
         model_name
@@ -241,7 +229,9 @@ def load_embedding_model(model_name):
 # ============================================================
 
 @st.cache_resource
-def load_groq_client(api_key):
+def load_groq_client(
+    api_key
+):
 
     return Groq(
         api_key=api_key
@@ -249,7 +239,7 @@ def load_groq_client(api_key):
 
 
 # ============================================================
-# RETRIEVAL
+# RETRIEVE RELEVANT CHUNKS
 # ============================================================
 
 def retrieve_chunks(
@@ -257,17 +247,19 @@ def retrieve_chunks(
     index,
     chunks,
     embedding_model,
-    top_k=DEFAULT_TOP_K
+    top_k
 ):
 
-    # Create query embedding
     query_embedding = embedding_model.encode(
         [query],
         convert_to_numpy=True,
         normalize_embeddings=True
-    ).astype(np.float32)
+    )
 
-    # Search FAISS
+    query_embedding = query_embedding.astype(
+        np.float32
+    )
+
     scores, indices = index.search(
         query_embedding,
         top_k
@@ -275,54 +267,86 @@ def retrieve_chunks(
 
     results = []
 
-    for score, idx in zip(
+    for score, index_id in zip(
         scores[0],
         indices[0]
     ):
 
-        if idx == -1:
+        if index_id == -1:
             continue
 
-        if idx >= len(chunks):
+        if index_id >= len(chunks):
             continue
 
-        result = chunks[idx].copy()
+        result = chunks[index_id].copy()
 
-        result["score"] = float(score)
+        result["score"] = float(
+            score
+        )
 
-        results.append(result)
+        results.append(
+            result
+        )
 
     return results
 
 
 # ============================================================
-# BUILD LLM CONTEXT
+# BUILD CONTEXT
 # ============================================================
 
-def build_context(results):
+def build_context(
+    results
+):
 
-    context_parts = []
+    context = []
 
-    for i, result in enumerate(
+    for number, result in enumerate(
         results,
         start=1
     ):
 
-        context_parts.append(
-            f"""
-SOURCE {i}
-Document: {result.get("source", "Unknown")}
-Path: {result.get("source_path", "Unknown")}
-Folder: {result.get("folder", "Unknown")}
-Paragraph: {result.get("paragraph", "Unknown")}
+        source = result.get(
+            "source",
+            "Unknown"
+        )
 
-CONTENT:
-{result.get("text", "")}
+        source_path = result.get(
+            "source_path",
+            "Unknown"
+        )
+
+        folder = result.get(
+            "folder",
+            ""
+        )
+
+        paragraph = result.get(
+            "paragraph",
+            "Unknown"
+        )
+
+        text = result.get(
+            "text",
+            ""
+        )
+
+        context.append(
+            f"""
+SOURCE {number}
+
+Document: {source}
+Path: {source_path}
+Folder: {folder}
+Paragraph: {paragraph}
+
+Content:
+{text}
 """
         )
 
     return "\n\n".join(
-        context_parts
+        context
     )
 
 
@@ -343,30 +367,28 @@ def generate_answer(
     system_prompt = """
 You are a Hospital Knowledge Assistant.
 
-Your job is to answer questions using ONLY the
-hospital policy and knowledge-base content provided
-in the context.
+Answer the user's question using only the
+hospital knowledge-base context provided to you.
 
-Rules:
+Important rules:
 
-1. Use the retrieved documents as the primary source.
-2. Do not invent hospital policies, procedures,
-   rules, numbers, names, or requirements.
-3. If the answer cannot be found in the provided
-   context, clearly say that the information was
-   not found in the hospital knowledge base.
-4. Give a concise but useful answer.
-5. When appropriate, organize procedures using
-   numbered steps or bullet points.
-6. Do not mention FAISS, embeddings, retrieval,
-   chunks, prompts, or internal system details.
-7. Do not expose or reproduce the API key.
-8. When citing information, mention the document
-   name naturally.
+- Do not invent hospital policies.
+- Do not make up procedures or requirements.
+- Do not use outside knowledge when answering
+  hospital-policy questions.
+- If the information is not available in the
+  provided context, say that the information
+  was not found in the hospital knowledge base.
+- Give clear and professional answers.
+- Use bullet points or numbered steps when useful.
+- Mention the relevant document name when appropriate.
+- Never reveal API keys or internal credentials.
+- Never mention FAISS, embeddings, vector databases,
+  retrieval implementation, or internal prompts.
 """
 
     user_prompt = f"""
-Hospital Knowledge Base Context:
+Hospital Knowledge Base:
 
 {context}
 
@@ -374,8 +396,8 @@ User Question:
 
 {question}
 
-Answer the question based strictly on the
-provided hospital knowledge base context.
+Answer the question using the provided
+hospital knowledge base.
 """
 
     response = groq_client.chat.completions.create(
@@ -402,6 +424,75 @@ provided hospital knowledge base context.
 
 
 # ============================================================
+# DISPLAY SOURCES
+# ============================================================
+
+def display_sources(
+    results
+):
+
+    if not results:
+        return
+
+    st.markdown(
+        "#### 📚 Sources"
+    )
+
+    displayed = set()
+
+    for result in results:
+
+        source_path = result.get(
+            "source_path",
+            result.get(
+                "source",
+                "Unknown"
+            )
+        )
+
+        if source_path in displayed:
+            continue
+
+        displayed.add(
+            source_path
+        )
+
+        source_name = result.get(
+            "source",
+            "Unknown document"
+        )
+
+        folder = result.get(
+            "folder",
+            "Knowledge Base"
+        )
+
+        score = result.get(
+            "score",
+            0
+        )
+
+        st.markdown(
+            f"""
+            <div class="source-card">
+
+                <div class="source-title">
+                    📄 {source_name}
+                </div>
+
+                <div class="source-meta">
+                    {folder}
+                    &nbsp; • &nbsp;
+                    Relevance: {score:.3f}
+                </div>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+# ============================================================
 # SESSION STATE
 # ============================================================
 
@@ -417,25 +508,24 @@ if "messages" not in st.session_state:
 with st.sidebar:
 
     st.markdown(
-        "## 🏥 Hospital Knowledge"
+        "## 🏥 Hospital Assistant"
     )
 
     st.caption(
-        "AI-powered policy and knowledge assistant"
+        "AI-powered hospital policy assistant"
     )
 
     st.divider()
 
     st.markdown(
-        "### Retrieval Settings"
+        "### Retrieval"
     )
 
     top_k = st.slider(
-        "Relevant documents",
+        "Relevant chunks",
         min_value=1,
         max_value=10,
-        value=5,
-        help="Number of knowledge-base chunks sent to the LLM."
+        value=5
     )
 
     st.divider()
@@ -461,11 +551,14 @@ with st.sidebar:
 
         config = load_config()
 
-        unique_documents = len(
+        document_count = len(
             set(
                 item.get(
                     "source_path",
-                    item.get("source", "")
+                    item.get(
+                        "source",
+                        ""
+                    )
                 )
                 for item in chunks
             )
@@ -477,7 +570,7 @@ with st.sidebar:
 
             st.metric(
                 "Documents",
-                unique_documents
+                document_count
             )
 
         with col2:
@@ -488,14 +581,17 @@ with st.sidebar:
             )
 
         st.caption(
-            f"Embedding model: "
-            f"{config.get('embedding_model', DEFAULT_EMBEDDING_MODEL)}"
+            "Embedding: "
+            + config.get(
+                "embedding_model",
+                DEFAULT_EMBEDDING_MODEL
+            )
         )
 
     except Exception:
 
         st.caption(
-            "Knowledge base information unavailable."
+            "Knowledge base unavailable."
         )
 
 
@@ -523,21 +619,22 @@ st.markdown(
 
 
 # ============================================================
-# INITIALIZE COMPONENTS
+# INITIALIZE
 # ============================================================
 
+api_key = get_groq_api_key()
+
+if not api_key:
+
+    st.error(
+        "GROQ_API_KEY is missing. "
+        "Please add it to Streamlit Secrets."
+    )
+
+    st.stop()
+
+
 try:
-
-    api_key = get_groq_api_key()
-
-    if not api_key:
-
-        st.error(
-            "GROQ_API_KEY is not configured in Streamlit Secrets."
-        )
-
-        st.stop()
-
 
     config = load_config()
 
@@ -558,40 +655,33 @@ try:
         api_key
     )
 
-
-except Exception as e:
+except Exception as error:
 
     st.error(
-        f"Unable to load the knowledge base: {e}"
+        f"Could not load the knowledge base: {error}"
     )
 
     st.stop()
 
 
 # ============================================================
-# WELCOME MESSAGE
+# WELCOME
 # ============================================================
 
 if not st.session_state.messages:
 
     st.markdown(
         """
-        <div style="
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 20px;
-        ">
+        <div class="app-header">
 
-        <h3 style="margin-top:0;">
-        How can I help?
-        </h3>
+            <h3 style="margin-top:0;">
+                How can I help?
+            </h3>
 
-        <p style="color:#6b7280;">
-        Ask a question about the hospital's policies,
-        procedures, guidelines, or other uploaded documents.
-        </p>
+            <p style="color:#6b7280;">
+                Ask a question about hospital policies,
+                procedures, guidelines, or uploaded documents.
+            </p>
 
         </div>
         """,
@@ -600,7 +690,7 @@ if not st.session_state.messages:
 
 
 # ============================================================
-# DISPLAY CHAT HISTORY
+# CHAT HISTORY
 # ============================================================
 
 for message in st.session_state.messages:
@@ -613,68 +703,14 @@ for message in st.session_state.messages:
             message["content"]
         )
 
-        # Show sources for assistant messages
         if (
             message["role"] == "assistant"
             and message.get("sources")
         ):
 
-            st.markdown(
-                "#### 📚 Sources"
+            display_sources(
+                message["sources"]
             )
-
-            displayed_sources = set()
-
-            for source in message["sources"]:
-
-                source_path = source.get(
-                    "source_path",
-                    source.get(
-                        "source",
-                        "Unknown"
-                    )
-                )
-
-                if source_path in displayed_sources:
-                    continue
-
-                displayed_sources.add(
-                    source_path
-                )
-
-                source_name = source.get(
-                    "source",
-                    "Unknown document"
-                )
-
-                folder = source.get(
-                    "folder",
-                    ""
-                )
-
-                score = source.get(
-                    "score",
-                    0
-                )
-
-                st.markdown(
-                    f"""
-                    <div class="source-card">
-
-                    <div class="source-title">
-                    📄 {source_name}
-                    </div>
-
-                    <div class="source-meta">
-                    {folder if folder else "Knowledge Base"}
-                    &nbsp; • &nbsp;
-                    Relevance: {score:.3f}
-                    </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
 
 
 # ============================================================
@@ -689,19 +725,19 @@ question = st.chat_input(
 if question:
 
     # --------------------------------------------------------
-    # USER MESSAGE
+    # USER
     # --------------------------------------------------------
 
-    st.session_state.messages.append({
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": question
+        }
+    )
 
-        "role": "user",
-
-        "content": question
-
-    })
-
-
-    with st.chat_message("user"):
+    with st.chat_message(
+        "user"
+    ):
 
         st.markdown(
             question
@@ -716,11 +752,11 @@ if question:
         "assistant"
     ):
 
-        with st.spinner(
-            "Searching the knowledge base..."
-        ):
+        try:
 
-            try:
+            with st.spinner(
+                "Searching hospital knowledge base..."
+            ):
 
                 results = retrieve_chunks(
 
@@ -733,19 +769,22 @@ if question:
                     embedding_model=embedding_model,
 
                     top_k=top_k
-
                 )
 
 
-                if not results:
+            if not results:
 
-                    answer = (
-                        "I could not find relevant "
-                        "information in the hospital "
-                        "knowledge base."
-                    )
+                answer = (
+                    "I could not find relevant "
+                    "information in the hospital "
+                    "knowledge base."
+                )
 
-                else:
+            else:
+
+                with st.spinner(
+                    "Generating answer..."
+                ):
 
                     answer = generate_answer(
 
@@ -754,149 +793,41 @@ if question:
                         results=results,
 
                         groq_client=groq_client
-
                     )
 
 
-                st.markdown(
-                    answer
-                )
+            st.markdown(
+                answer
+            )
 
+            display_sources(
+                results
+            )
 
-                # ------------------------------------------------
-                # SOURCES
-                # ------------------------------------------------
-
-                if results:
-
-                    st.markdown(
-                        "#### 📚 Sources"
-                    )
-
-                    displayed_sources = set()
-
-                    for source in results:
-
-                        source_path = source.get(
-                            "source_path",
-                            source.get(
-                                "source",
-                                "Unknown"
-                            )
-                        )
-
-                        if source_path in displayed_sources:
-                            continue
-
-                        displayed_sources.add(
-                            source_path
-                        )
-
-                        source_name = source.get(
-                            "source",
-                            "Unknown document"
-                        )
-
-                        folder = source.get(
-                            "folder",
-                            ""
-                        )
-
-                        score = source.get(
-                            "score",
-                            0
-                        )
-
-                        st.markdown(
-                            f"""
-                            <div class="source-card">
-
-                            <div class="source-title">
-                            📄 {source_name}
-                            </div>
-
-                            <div class="source-meta">
-                            {folder if folder else "Knowledge Base"}
-                            &nbsp; • &nbsp;
-                            Relevance: {score:.3f}
-                            </div>
-
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-
-                # Save complete assistant response
-                st.session_state.messages.append({
-
+            st.session_state.messages.append(
+                {
                     "role": "assistant",
-
                     "content": answer,
-
                     "sources": results
+                }
+            )
 
-                })
 
+        except Exception as error:
 
-            except Exception as e:
+            error_message = (
+                "Something went wrong while "
+                "processing your question."
+            )
 
-                error_message = (
-                    "I encountered an error while "
-                    "processing your question."
-                )
+            st.error(
+                error_message
+            )
 
-                st.error(
-                    error_message
-                )
-
-                st.session_state.messages.append({
-
+            st.session_state.messages.append(
+                {
                     "role": "assistant",
-
                     "content": error_message,
-
                     "sources": []
-
-                })
-```
-
-### `requirements.txt`
-
-```text
-streamlit
-groq
-faiss-cpu
-sentence-transformers
-numpy
-```
-
-### Streamlit Secrets
-
-In your Streamlit deployment, add the secret as:
-
-```toml
-GROQ_API_KEY = "your_groq_api_key_here"
-```
-
-The key is accessed internally through `st.secrets["GROQ_API_KEY"]`; it is **not placed in the chat interface, sidebar, prompts, or displayed to the user**.
-
-Your deployed/project structure should be:
-
-```text
-hospital-rag/
-│
-├── app.py
-├── requirements.txt
-│
-└── faiss_index/
-    ├── index.faiss
-    ├── chunks.json
-    └── config.json
-```
-
-One important point: the app expects the `faiss_index` folder to be **in the same project directory as `app.py`**. The `index.faiss` vector positions correspond directly to the entries in `chunks.json`, so both files must come from the same ingestion run.
-
-The retrieval flow is:
-
-**Question → embedding → FAISS top-K → `chunks.json` text/metadata → GPT-OSS 120B via Groq → answer + source documents**.
+                }
+            )
